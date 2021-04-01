@@ -1,0 +1,319 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Static website hosting with S3, CloudFront and Route53",
+    "Parameters": {
+        "BucketName": {
+            "Type": "String",
+            "Default": "sudarshanreacttest"
+        },
+        "Name": {
+            "Type": "String",
+            "Default": "sudarshanpowar.ml"
+        }
+    },
+    "Resources": {
+        "S3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Ref": "BucketName"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "ba0ced61-334b-46fb-b38e-fa7024080a3e"
+                }
+            }
+        },
+        "ReadPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "Bucket": {
+                    "Ref": "S3Bucket"
+                },
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": "s3:GetObject",
+                            "Effect": "Allow",
+                            "Resource": {
+                                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+                            },
+                            "Principal": {
+                                "CanonicalUser": {
+                                    "Fn::GetAtt": [
+                                        "CloudFrontOriginAccessIdentity",
+                                        "S3CanonicalUserId"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "a5a6558a-0114-406f-8681-67485261a8da"
+                }
+            }
+        },
+        "CloudFrontOriginAccessIdentity": {
+            "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+            "Properties": {
+                "CloudFrontOriginAccessIdentityConfig": {
+                    "Comment": {
+                        "Ref": "S3Bucket"
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "96701587-d593-4fb0-bb67-ac70f0c809ad"
+                }
+            }
+        },
+        "CloudFrontDistribution": {
+            "Type": "AWS::CloudFront::Distribution",
+            "Properties": {
+                "DistributionConfig": {
+                    "DefaultCacheBehavior": {
+                        "AllowedMethods": [
+                            "GET",
+                            "HEAD"
+                        ],
+                        "CachedMethods": [
+                            "GET",
+                            "HEAD"
+                        ],
+                        "Compress": true,
+                        "DefaultTTL": 3600,
+                        "ForwardedValues": {
+                            "Cookies": {
+                                "Forward": "none"
+                            },
+                            "QueryString": false
+                        },
+                        "MaxTTL": 86400,
+                        "MinTTL": 60,
+                        "TargetOriginId": "s3origin",
+                        "ViewerProtocolPolicy": "redirect-to-https"
+                    },
+                    "DefaultRootObject": "index.html",
+                    "Enabled": true,
+                    "Aliases": [
+                        "*.sudarshanpowar.ml",
+                        "sudarshanpowar.ml"
+                    ],
+                    "Origins": [
+                        {
+                            "DomainName": {
+                                "Fn::GetAtt": [
+                                    "S3Bucket",
+                                    "DomainName"
+                                ]
+                            },
+                            "Id": "s3origin",
+                            "S3OriginConfig": {
+                                "OriginAccessIdentity": {
+                                    "Fn::Sub": "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+                                }
+                            }
+                        }
+                    ],
+                    "PriceClass": "PriceClass_All",
+                    "ViewerCertificate": {
+                        "AcmCertificateArn": {
+                            "Ref": "Certificate"
+                        },
+                        "SslSupportMethod": "sni-only",
+                        "MinimumProtocolVersion": "TLSv1"
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "ef414c78-7679-40c4-a669-23c603967e3f"
+                }
+            }
+        },
+        "Certificate": {
+            "Type": "AWS::CertificateManager::Certificate",
+            "Properties": {
+                "DomainName": {
+                    "Ref": "Name"
+                },
+                "ValidationMethod": "DNS",
+                "SubjectAlternativeNames": [
+                    "*.sudarshanpowar.ml"
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "6477108f-92cb-48be-b333-ec20f682d446"
+                }
+            }
+        },
+        "Route53": {
+            "Type": "AWS::Route53::HostedZone",
+            "Properties": {
+                "Name": {
+                    "Ref": "Name"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "47f5c885-4a23-40ab-bad1-8ab385ed5e6f"
+                }
+            }
+        },
+        "RecordSet": {
+            "Type": "AWS::Route53::RecordSet",
+            "Properties": {
+                "AliasTarget": {
+                    "HostedZoneId": "Z2FDTNDATAQYW2",
+                    "DNSName": {
+                        "Fn::GetAtt": [
+                            "CloudFrontDistribution",
+                            "DomainName"
+                        ]
+                    }
+                },
+                "HostedZoneId": {
+                    "Ref": "Route53"
+                },
+                "Name": {
+                    "Ref": "Name"
+                },
+                "Type": "A"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "6c999ed8-8d04-4366-8745-1a1774dc64b0"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "Bucket": {
+            "Description": "S3 Bucket Name",
+            "Value": {
+                "Ref": "S3Bucket"
+            }
+        },
+        "BucketUrl": {
+            "Description": "S3 Bucket Url",
+            "Value": {
+                "Fn::GetAtt": [
+                    "S3Bucket",
+                    "WebsiteURL"
+                ]
+            }
+        },
+        "DistributionId": {
+            "Description": "CloudFront Distribution ID",
+            "Value": {
+                "Ref": "CloudFrontDistribution"
+            }
+        },
+        "Domain": {
+            "Description": "Cloudfront Domain",
+            "Value": {
+                "Fn::GetAtt": [
+                    "CloudFrontDistribution",
+                    "DomainName"
+                ]
+            }
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "ba0ced61-334b-46fb-b38e-fa7024080a3e": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 60,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "ef414c78-7679-40c4-a669-23c603967e3f": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 180,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "96701587-d593-4fb0-bb67-ac70f0c809ad": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 60,
+                    "y": 210
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "a5a6558a-0114-406f-8681-67485261a8da": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 180,
+                    "y": 210
+                },
+                "z": 1,
+                "embeds": [],
+                "isassociatedwith": [
+                    "ba0ced61-334b-46fb-b38e-fa7024080a3e"
+                ]
+            },
+            "6477108f-92cb-48be-b333-ec20f682d446": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -40,
+                    "y": 90
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "6c999ed8-8d04-4366-8745-1a1774dc64b0": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 320,
+                    "y": 180
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "47f5c885-4a23-40ab-bad1-8ab385ed5e6f": {
+                "size": {
+                    "width": 80,
+                    "height": 80
+                },
+                "position": {
+                    "x": -60,
+                    "y": 200
+                },
+                "z": 0,
+                "embeds": []
+            }
+        }
+    }
+}
